@@ -652,11 +652,11 @@
   swapBtn.addEventListener('click', () => {
     enableSwapping = !enableSwapping;
     if (enableSwapping) {
-      swapBtn.textContent = "Intercambio ON";
+      swapBtn.textContent = "Intercambio encendido";
       statusIndicator.textContent = "Estado: Girando (Intercambio ON)";
       startSwapping();
     } else {
-      swapBtn.textContent = "Intercambio OFF";
+      swapBtn.textContent = "Intercambio apagado";
       statusIndicator.textContent = "Estado: Girando (Intercambio OFF)";
       if (swapTimeout) clearTimeout(swapTimeout);
     }
