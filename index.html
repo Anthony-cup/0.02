@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carrusel 3D con Selección de Imágenes</title>
+
+  <link rel="stylesheet" href="css/stilos.css">
+
+  <style>
+    * {margin:0;padding:0;box-sizing:border-box;}
+    body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-image: url('img/1.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  font-family: Arial, sans-serif;
+}
+
+    .scene {position:relative;width:600px;height:500px;perspective:1000px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+    .glow {position:absolute;width:50%;height:50%;background:radial-gradient(circle,rgba(100,100,255,0.2) 0%,rgba(0,0,0,0) 70%);border-radius:50%;pointer-events:none;}
+    .carousel {position:relative;transform-style:preserve-3d;width:400px;height:200px;transition:transform 0.5s ease-out;margin-bottom:100px;}
+    .carousel-item {position:absolute;width:100px;height:100px;background-color:rgba(0,0,0,0.5);border-radius:8px;border:2px solid rgba(255,255,255,0.5);transform-style:preserve-3d;transition:all 0.3s ease;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;}
+    .carousel-item:hover {border-color:#fff;box-shadow:0 0 15px rgba(255,255,255,0.5);}
+    .carousel-item.selected {border:3px solid yellow;box-shadow:0 0 20px yellow;}
+    .carousel-item img {width:100%;height:100%;object-fit:cover;border-radius:6px;}
+    .image-number {position:absolute;bottom:5px;right:5px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:10px;font-size:12px;}
+    .center-image-container {position:absolute;top:50%;left:50%;transform:translate(-50%, 80%);z-index:10;}
+    .center-image {width:150px;height:150px;background:rgba(0,0,0,0.7);border-radius:12px;border:3px solid rgba(255,255,255,0.8);box-shadow:0 0 25px rgba(255,255,255,0.3);overflow:hidden;position:relative;}
+    .center-image img {width:100%;height:100%;object-fit:cover;}
+    .swap-container {position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20;perspective:1000px;}
+    .swap-item {position:absolute;background:rgba(0,0,0,0.7);border-radius:12px;border:2px solid rgba(255,255,255,0.8);overflow:hidden;transform-origin:center center;box-shadow:0 0 20px rgba(100,100,255,0.4);}
+    .swap-item img {width:100%;height:100%;object-fit:cover;}
+    .swap-number {position:absolute;bottom:5px;right:5px;background:rgba(0,0,0,0.7);color:white;padding:2px 6px;border-radius:10px;font-size:12px;}
+    .controls {position:absolute;bottom:10px;width:100%;display:flex;flex-direction:column;align-items:center;gap:10px;}
+    .controls button {padding:8px 15px;margin:0 5px;background:rgba(0,0,0,0.6);color:white;border:1px solid rgba(255,255,255,0.3);border-radius:20px;cursor:pointer;transition:all 0.3s ease;}
+    .controls button:hover {background:rgba(100,100,255,0.3);border-color:white;}
+    .status-indicator {background:rgba(0,0,0,0.7);color:white;padding:5px 10px;border-radius:20px;font-size:14px;margin-top:10px;}
+    .selection-message {opacity:0;background:rgba(0,255,0,0.2);color:white;padding:5px 10px;border-radius:20px;font-size:14px;transition:opacity 0.5s ease;margin-top:5px;}
+    .settings-menu {position:absolute;left:0;width:100%;background:rgba(0,0,0,0.8);border-radius:10px;padding:15px;transform:translateY(-120%);opacity:0;transition:all 0.3s ease;pointer-events:none;z-index:30;}
+    .settings-menu.show {transform:translateY(0);opacity:1;pointer-events:auto;}
+    .controls-group {display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:10px;}
+    .upload-section {margin-top:15px;border-top:1px solid rgba(255,255,255,0.2);padding-top:10px;}
+    .upload-title {color:white;margin-bottom:10px;text-align:center;font-size:16px;}
+    .image-upload-container {display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-top:10px;}
+    .image-upload-slot {width:60px;height:60px;border:2px dashed rgba(255,255,255,0.5);border-radius:8px;display:flex;justify-content:center;align-items:center;cursor:pointer;position:relative;overflow:hidden;}
+    .image-upload-slot:hover {border-color:white;background:rgba(255,255,255,0.1);}
+    .image-upload-slot img {width:100%;height:100%;object-fit:cover;}
+    .slot-number {position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,0.7);color:white;font-size:10px;padding:1px 4px;border-radius:8px;}
+    .placeholder-icon {font-size:24px;color:rgba(255,255,255,0.5);}
+    .file-input {display:none;}
+    .center-slot {grid-column:2;grid-row:1;border-color:rgba(255,215,0,0.8);background:rgba(255,215,0,0.1);}
+    .center-slot:hover {border-color:gold;background:rgba(255,215,0,0.2);}
+    .close-btn {position:absolute;top:10px;right:10px;background:rgba(255,0,0,0.3);color:white;border:none;border-radius:50%;width:25px;height:25px;font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+    .close-btn:hover {background:rgba(255,0,0,0.6);}
+    .slot-label {position:absolute;top:2px;left:2px;background:rgba(0,0,0,0.5);color:white;font-size:8px;padding:1px 3px;border-radius:4px;}
+    .settings-btn-container {position:absolute;bottom:-70px;left:50%;transform:translateX(-50%);z-index:15;}
+    .delete-btn {
+      position: absolute;
+      bottom: 5px;
+      left: 5px;
+      background: #ff3333;
+      color: white;
+      border: 1px solid white;
+      border-radius: 4px;
+      width: 16px;
+      height: 16px;
+      font-size: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      transition: all 0.2s ease;
+    }
+    .delete-btn:hover {
+      background: #ff0000;
+      transform: scale(1.2);
+      box-shadow: 0 0 5px rgba(255,0,0,0.7);
+    }
+
+
+    /* El panel cubre toda la pantalla */
+#panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8); /* color negro semitransparente */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+/* El botón */
+#btnEntrar {
+  padding: 20px 40px;
+  font-size: 24px;
+  cursor: pointer;
+  background-color: white;
+  border: none;
+  border-radius: 10px;
+}
+#btnEntrar {
+  padding: 20px 40px;
+  font-size: 24px;
+  cursor: pointer;
+  background-color: #3d003b; /* Color de fondo verde */
+  border: none;
+  border-radius: 10px;
+  color: rgb(111, 214, 255); /* Color de texto blanco */
+  transition: background-color 0.3s ease; /* Efecto de transición para el color */
+}
+
+/* Efecto al pasar el mouse por encima del botón */
+#btnEntrar:hover {
+  background-color: #11000e; /* Color más oscuro al hacer hover */
+}
+    
+  </style>
+</head>
+<body>
+  <div id="panel">
+    <button id="btnEntrar">Entrar</button>
+  </div>
+  <div class="scene">
+    <div class="glow"></div>
+    <div class="carousel" id="carousel"></div>
+    
+    <div class="center-image-container" id="centerContainer">
+      <div class="center-image" id="centerImage">
+        <img src="/api/placeholder/150/150" alt="Imagen Central" id="centerImg">
+        <div class="image-number" id="centerNumber">Central</div>
+      </div>
+      
+      <div class="settings-btn-container">
+        <button id="settingsBtn">⚙️ Configuraciones</button>
+      </div>
+    </div>
+    
+    <div class="swap-container" id="swapContainer"></div>
+
+    <div class="controls">
+      <div class="settings-menu" id="settingsMenu">
+        <button class="close-btn" id="closeSettingsBtn">✖</button>
+        <div class="controls-group">
+          <button id="pauseBtn">Pausar</button>
+          <button id="resumeBtn">Continuar</button>
+          <button id="reverseBtn">Invertir</button>
+          <button id="swapBtn">Intercambio ON/OFF</button>
+        </div>
+        
+        <div class="upload-section">
+          <div class="upload-title">Añadir/Eliminar Imágenes del Carrusel</div>
+          <div class="image-upload-container" id="imageUploadContainer"></div>
+        </div>
+      </div>
+      
+      <div class="status-indicator" id="statusIndicator">Estado: Girando</div>
+      <div class="selection-message" id="selectionMessage">Imagen seleccionada</div>
+    </div>
+  </div>
+
+  <script>
+  const carousel = document.getElementById('carousel');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const resumeBtn = document.getElementById('resumeBtn');
+  const reverseBtn = document.getElementById('reverseBtn');
+  const swapBtn = document.getElementById('swapBtn');
+  const statusIndicator = document.getElementById('statusIndicator');
+  const selectionMessage = document.getElementById('selectionMessage');
+  const centerContainer = document.getElementById('centerContainer');
+  const centerImage = document.getElementById('centerImage');
+  const centerImg = document.getElementById('centerImg');
+  const centerNumber = document.getElementById('centerNumber');
+  const swapContainer = document.getElementById('swapContainer');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsMenu = document.getElementById('settingsMenu');
+  const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+  const imageUploadContainer = document.getElementById('imageUploadContainer');
+  
+  const defaultPlaceholder = "/api/placeholder/100/100";
+  const defaultCenterPlaceholder = "/api/placeholder/150/150";
+  
+  let placeholderImages = Array(8).fill(defaultPlaceholder);
+  let centerPlaceholderImage = defaultCenterPlaceholder;
+  
+  const items = [];
+  const images = [];
+  const numbers = [];
+  const itemPositions = [];
+  
+  let currentlySwapping = false;
+  let enableSwapping = true;
+  let selectedIndex = null;
+  let isAnimating = true;
+  let direction = 1;
+  let rotationDegree = 0;
+  let animationFrameId = null;
+  let swapTimeout = null;
+  
+  const radius = 200;
+  const angleStep = (2 * Math.PI) / placeholderImages.length;
+  
+  function loadImagesFromStorage() {
+    const savedCarouselImages = localStorage.getItem('carouselImages');
+    const savedCenterImage = localStorage.getItem('centerImage');
+    
+    if (savedCarouselImages) {
+      placeholderImages = JSON.parse(savedCarouselImages);
+    }
+    
+    if (savedCenterImage) {
+      centerPlaceholderImage = savedCenterImage;
+      centerImg.src = centerPlaceholderImage;
+    }
+  }
+  
+  function saveImagesToStorage() {
+    localStorage.setItem('carouselImages', JSON.stringify(placeholderImages));
+    localStorage.setItem('centerImage', centerImg.src);
+  }
+  
+  settingsBtn.addEventListener('click', function() {
+    settingsMenu.classList.add('show');
+  });
+  
+  closeSettingsBtn.addEventListener('click', function() {
+    settingsMenu.classList.remove('show');
+  });
+  
+  function createCarouselItems() {
+    carousel.innerHTML = '';
+    items.length = 0;
+    images.length = 0;
+    numbers.length = 0;
+    itemPositions.length = 0;
+    
+    for (let i = 0; i < placeholderImages.length; i++) {
+      const item = document.createElement('div');
+      item.className = 'carousel-item';
+      item.setAttribute('data-index', i);
+  
+      const img = document.createElement('img');
+      img.src = placeholderImages[i];
+      img.alt = `Imagen ${i + 1}`;
+  
+      img.onerror = () => {
+        img.src = defaultPlaceholder;
+      };
+  
+      const number = document.createElement('div');
+      number.className = 'image-number';
+      number.textContent = i + 1;
+  
+      item.appendChild(img);
+      item.appendChild(number);
+      carousel.appendChild(item);
+  
+      item.addEventListener('click', function () {
+        if (currentlySwapping) return;
+        const index = parseInt(this.getAttribute('data-index'));
+        selectCarouselItem(index);
+      });
+  
+      items.push(item);
+      images.push(img);
+      numbers.push(number);
+      
+      const angle = i * angleStep;
+      const x = radius * Math.sin(angle);
+      const z = radius * Math.cos(angle);
+      const rotateY = angle * (180 / Math.PI);
+      
+      const position = {
+        angle: angle,
+        x: x,
+        z: z,
+        rotateY: rotateY,
+        transform: `translateX(${x}px) translateZ(${z}px) rotateY(${rotateY}deg)`
+      };
+      
+      itemPositions.push(position);
+    }
+  }
+  
+  function deleteImage(slotType, slotIndex) {
+    event.stopPropagation();
+    
+    if (slotType === 'center') {
+      centerImg.src = defaultCenterPlaceholder;
+      saveImagesToStorage();
+      createImageUploadSlots();
+    } else {
+      const index = parseInt(slotIndex);
+      placeholderImages[index] = defaultPlaceholder;
+      
+      if (images[index]) {
+        images[index].src = defaultPlaceholder;
+      }
+      
+      saveImagesToStorage();
+      createImageUploadSlots();
+    }
+  }
+  
+  function createImageUploadSlots() {
+    imageUploadContainer.innerHTML = '';
+    
+    const centerSlot = document.createElement('div');
+    centerSlot.className = 'image-upload-slot center-slot';
+    centerSlot.setAttribute('data-slot', 'center');
+    
+    if (centerImg.src !== defaultCenterPlaceholder) {
+      const img = document.createElement('img');
+      img.src = centerImg.src;
+      img.alt = "Imagen Central";
+      centerSlot.appendChild(img);
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'delete-btn';
+      deleteBtn.innerHTML = '🗑️';
+      deleteBtn.title = 'Eliminar imagen';
+      deleteBtn.addEventListener('click', function() {
+        deleteImage('center');
+      });
+      centerSlot.appendChild(deleteBtn);
+    } else {
+      const icon = document.createElement('div');
+      icon.className = 'placeholder-icon';
+      icon.textContent = '+';
+      centerSlot.appendChild(icon);
+    }
+    
+    const centerLabel = document.createElement('div');
+    centerLabel.className = 'slot-label';
+    centerLabel.textContent = 'Central';
+    centerSlot.appendChild(centerLabel);
+    
+    const centerInput = document.createElement('input');
+    centerInput.type = 'file';
+    centerInput.className = 'file-input';
+    centerInput.accept = 'image/*';
+    centerInput.setAttribute('data-slot', 'center');
+    
+    centerInput.addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          centerImg.src = e.target.result;
+          createImageUploadSlots();
+          saveImagesToStorage();
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+    
+    centerSlot.appendChild(centerInput);
+    centerSlot.addEventListener('click', function() {
+      centerInput.click();
+    });
+    
+    imageUploadContainer.appendChild(centerSlot);
+    
+    for (let i = 0; i < placeholderImages.length; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'image-upload-slot';
+      slot.setAttribute('data-slot', i);
+      
+      if (placeholderImages[i] !== defaultPlaceholder) {
+        const img = document.createElement('img');
+        img.src = placeholderImages[i];
+        img.alt = `Imagen ${i + 1}`;
+        slot.appendChild(img);
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '🗑️';
+        deleteBtn.title = 'Eliminar imagen';
+        deleteBtn.setAttribute('data-index', i);
+        deleteBtn.addEventListener('click', function() {
+          deleteImage('carousel', i);
+        });
+        slot.appendChild(deleteBtn);
+      } else {
+        const icon = document.createElement('div');
+        icon.className = 'placeholder-icon';
+        icon.textContent = '+';
+        slot.appendChild(icon);
+      }
+      
+      const number = document.createElement('div');
+      number.className = 'slot-number';
+      number.textContent = i + 1;
+      slot.appendChild(number);
+      
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.className = 'file-input';
+      input.accept = 'image/*';
+      input.setAttribute('data-slot', i);
+      
+      input.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const slotIndex = parseInt(input.getAttribute('data-slot'));
+            placeholderImages[slotIndex] = e.target.result;
+            
+            if (images[slotIndex]) {
+              images[slotIndex].src = e.target.result;
+            }
+            
+            createImageUploadSlots();
+            saveImagesToStorage();
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+      
+      slot.appendChild(input);
+      slot.addEventListener('click', function() {
+        input.click();
+      });
+      
+      imageUploadContainer.appendChild(slot);
+    }
+  }
+  
+  function updateCarouselPositions() {
+    items.forEach((item, index) => {
+      const position = itemPositions[index];
+      item.style.transform = position.transform;
+    });
+  }
+  
+  function animate() {
+    if (isAnimating && !currentlySwapping) {
+      rotationDegree += 0.5 * direction;
+      carousel.style.transform = `rotateY(${rotationDegree}deg)`;
+    }
+    animationFrameId = requestAnimationFrame(animate);
+  }
+  
+  function selectCarouselItem(index) {
+    if (currentlySwapping) return;
+    
+    if (swapTimeout) {
+      clearTimeout(swapTimeout);
+    }
+    
+    selectedIndex = index;
+    
+    selectionMessage.textContent = `Seleccionada: Imagen ${index + 1}`;
+    selectionMessage.style.opacity = '1';
+    
+    setTimeout(() => {
+      selectionMessage.style.opacity = '0';
+    }, 2000);
+    
+    items.forEach(item => item.classList.remove('selected'));
+    items[index].classList.add('selected');
+    
+    alignToSelectedItem(index);
+  }
+  
+  function alignToSelectedItem(index) {
+    currentlySwapping = true;
+    statusIndicator.textContent = "Estado: Alineando";
+    
+    const targetDegree = -index * (360 / placeholderImages.length);
+    
+    let diffDegree = targetDegree - rotationDegree;
+    
+    while (diffDegree > 180) diffDegree -= 360;
+    while (diffDegree < -180) diffDegree += 360;
+    
+    const startRotation = rotationDegree;
+    const endRotation = rotationDegree + diffDegree;
+    const duration = 800;
+    const startTime = performance.now();
+    
+    function alignAnimation(timestamp) {
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeProgress = 0.5 - Math.cos(progress * Math.PI) / 2;
+      
+      rotationDegree = startRotation + (endRotation - startRotation) * easeProgress;
+      carousel.style.transform = `rotateY(${rotationDegree}deg)`;
+      
+      if (progress < 1) {
+        requestAnimationFrame(alignAnimation);
+      } else {
+        performSmoothExchange(index);
+      }
+    }
+    
+    requestAnimationFrame(alignAnimation);
+  }
+  
+  function swapImages() {
+    if (!enableSwapping || currentlySwapping) return;
+    
+    currentlySwapping = true;
+    statusIndicator.textContent = "Estado: Intercambiando";
+    
+    const itemsPerRevolution = placeholderImages.length;
+    const degreesPerItem = 360 / itemsPerRevolution;
+    const frontIndex = Math.round(((-rotationDegree % 360) / degreesPerItem) % itemsPerRevolution);
+    const adjustedIndex = frontIndex < 0 ? (frontIndex + itemsPerRevolution) % itemsPerRevolution : frontIndex % itemsPerRevolution;
+    
+    alignToSelectedItem(adjustedIndex);
+  }
+  
+  function performSmoothExchange(index) {
+    swapContainer.innerHTML = '';
+    
+    statusIndicator.textContent = "Estado: Intercambiando";
+    
+    const selectedItem = items[index];
+    const selectedRect = selectedItem.getBoundingClientRect();
+    const centerRect = centerImage.getBoundingClientRect();
+    const sceneRect = document.querySelector('.scene').getBoundingClientRect();
+    
+    const selectedPosition = itemPositions[index];
+    
+    const fromCarouselToCenter = document.createElement('div');
+    fromCarouselToCenter.className = 'swap-item';
+    fromCarouselToCenter.style.width = `${selectedRect.width}px`;
+    fromCarouselToCenter.style.height = `${selectedRect.height}px`;
+    fromCarouselToCenter.style.top = `${selectedRect.top - sceneRect.top}px`;
+    fromCarouselToCenter.style.left = `${selectedRect.left - sceneRect.left}px`;
+    fromCarouselToCenter.style.zIndex = '5';
+    
+    const img1 = document.createElement('img');
+    img1.src = images[index].src;
+    img1.alt = 'Animación 1';
+    fromCarouselToCenter.appendChild(img1);
+    
+    const num1 = document.createElement('div');
+    num1.className = 'swap-number';
+    num1.textContent = numbers[index].textContent;
+    fromCarouselToCenter.appendChild(num1);
+    
+    const fromCenterToCarousel = document.createElement('div');
+    fromCenterToCarousel.className = 'swap-item';
+    fromCenterToCarousel.style.width = `${centerRect.width}px`;
+    fromCenterToCarousel.style.height = `${centerRect.height}px`;
+    fromCenterToCarousel.style.top = `${centerRect.top - sceneRect.top}px`;
+    fromCenterToCarousel.style.left = `${centerRect.left - sceneRect.left}px`;
+    fromCenterToCarousel.style.zIndex = '4';
+    
+    const img2 = document.createElement('img');
+    img2.src = centerImg.src;
+    img2.alt = 'Animación 2';
+    fromCenterToCarousel.appendChild(img2);
+    
+    const num2 = document.createElement('div');
+    num2.className = 'swap-number';
+    num2.textContent = centerNumber.textContent;
+    fromCenterToCarousel.appendChild(num2);
+    
+    swapContainer.appendChild(fromCarouselToCenter);
+    swapContainer.appendChild(fromCenterToCarousel);
+    
+    selectedItem.style.opacity = '0';
+    centerImage.style.opacity = '0';
+    
+    const keyframes1 = [
+      { transform: `translate(0, 0) scale(1)` },
+      { transform: `translate(${(centerRect.left - selectedRect.left)/2}px, ${(centerRect.top - selectedRect.top)/2}px) scale(1.1)` },
+      { transform: `translate(${centerRect.left - selectedRect.left}px, ${centerRect.top - selectedRect.top}px) scale(${centerRect.width/selectedRect.width})` }
+    ];
+    
+    const exactDiffX = selectedRect.left - centerRect.left;
+    const exactDiffY = selectedRect.top - centerRect.top;
+    const scaleRatio = selectedRect.width / centerRect.width;
+    
+    const keyframes2 = [
+      { transform: `translate(0, 0) scale(1)` },
+      { transform: `translate(${exactDiffX/2}px, ${exactDiffY/2}px) scale(${(1 + scaleRatio)/2})` },
+      { transform: `translate(${exactDiffX}px, ${exactDiffY}px) scale(${scaleRatio})` }
+    ];
+    
+    const options = {
+      duration: 800,
+      easing: 'cubic-bezier(0.42, 0, 0.58, 1)',
+      fill: 'forwards'
+    };
+    
+    const animation1 = fromCarouselToCenter.animate(keyframes1, options);
+    const animation2 = fromCenterToCarousel.animate(keyframes2, options);
+    
+    animation1.onfinish = () => {
+      const tempSrc = centerImg.src;
+      const tempNumber = centerNumber.textContent;
+      
+      centerImg.src = images[index].src;
+      centerNumber.textContent = numbers[index].textContent;
+      
+      images[index].src = tempSrc;
+      numbers[index].textContent = tempNumber;
+      
+      placeholderImages[index] = tempSrc;
+      saveImagesToStorage();
+      
+      selectedItem.style.opacity = '1';
+      centerImage.style.opacity = '1';
+      
+      selectedItem.classList.remove('selected');
+      
+      swapContainer.innerHTML = '';
+      
+      currentlySwapping = false;
+      statusIndicator.textContent = "Estado: Girando";
+      selectedIndex = null;
+      
+      if (enableSwapping) {
+        swapTimeout = setTimeout(swapImages, 5000);
+      }
+    };
+  }
+  
+  function startSwapping() {
+    if (swapTimeout) clearTimeout(swapTimeout);
+    swapTimeout = setTimeout(swapImages, 5000);
+  }
+  
+  pauseBtn.addEventListener('click', () => {
+    isAnimating = false;
+    statusIndicator.textContent = "Estado: Pausado";
+  });
+  
+  resumeBtn.addEventListener('click', () => {
+    isAnimating = true;
+    statusIndicator.textContent = "Estado: Girando";
+  });
+  
+  reverseBtn.addEventListener('click', () => {
+    direction *= -1;
+    statusIndicator.textContent = `Estado: Girando (${direction > 0 ? 'Derecha' : 'Izquierda'})`;
+  });
+  
+  swapBtn.addEventListener('click', () => {
+    enableSwapping = !enableSwapping;
+    if (enableSwapping) {
+      swapBtn.textContent = "Intercambio ON";
+      statusIndicator.textContent = "Estado: Girando (Intercambio ON)";
+      startSwapping();
+    } else {
+      swapBtn.textContent = "Intercambio OFF";
+      statusIndicator.textContent = "Estado: Girando (Intercambio OFF)";
+      if (swapTimeout) clearTimeout(swapTimeout);
+    }
+  });
+  
+  function initCarousel() {
+    loadImagesFromStorage();
+    createCarouselItems();
+    createImageUploadSlots();
+    updateCarouselPositions();
+    animate();
+    if (enableSwapping) {
+      startSwapping();
+    }
+  }
+  
+  initCarousel();
+  </script>
+  <script>
+  // Obtener el botón y el panel
+const btnEntrar = document.getElementById('btnEntrar');
+const panel = document.getElementById('panel');
+
+// Crear el elemento de audio
+const audio = new Audio('music/1.mp3');
+
+// Cuando se presiona el botón
+btnEntrar.addEventListener('click', function() {
+  // Reproducir la música
+  audio.play();
+
+  // Ocultar el panel
+  panel.style.display = 'none';
+});
+
+  </script>
+</body>
+</html>
